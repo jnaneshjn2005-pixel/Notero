@@ -1,0 +1,41 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  padding: 20px;
+}
+
+.dark {
+  background: #121212;
+  color: white;
+}
+
+.container {
+  max-width: 600px;
+  margin: auto;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+}
+
+button {
+  padding: 8px 15px;
+  margin: 5px 0;
+  background: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.note, .upload-box {
+  background: white;
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.dark .note,
+.dark .upload-box {
+  background: #1e1e1e;
+}
