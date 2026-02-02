@@ -5,34 +5,20 @@ if ("serviceWorker" in navigator) {
 
 /* ===== LOGIN ===== */
 function login() {
-  const username = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value.trim();
   const role = document.getElementById("role").value;
 
   if (role === "admin") {
-    if (username === "admin" && password === "admin123") {
-      localStorage.clear();
-      localStorage.setItem("role", "admin");
-      window.location.href = "admin.html";
-    } else {
-      alert("Invalid admin credentials");
-    }
-    return;
+    localStorage.setItem("role", "admin");
+    window.location.href = "admin.html";
+  } else {
+    localStorage.setItem("role", "user");
+    window.location.href = "dashboard.html";
   }
-
-  if (!username) {
-    alert("Enter username");
-    return;
-  }
-
-  localStorage.clear();
-  localStorage.setItem("role", "user");
-  window.location.href = "dashboard.html";
 }
 
 /* ===== LOGOUT ===== */
 function logout() {
-  localStorage.clear();
+  localStorage.removeItem("role");
   window.location.href = "index.html";
 }
 
@@ -41,7 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const role = localStorage.getItem("role");
   const page = location.pathname;
 
-  if (page.includes("dashboard") && !role) {
+  if (page.includes("dashboard") && role !== "user") {
     location.href = "index.html";
   }
 
@@ -50,12 +36,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-/* ===== STORAGE ===== */
+/* ===== STORAGE HELPERS ===== */
 function getNotes() {
   return JSON.parse(localStorage.getItem("notes")) || [];
 }
-function saveNotes(n) {
-  localStorage.setItem("notes", JSON.stringify(n));
+
+function saveNotes(notes) {
+  localStorage.setItem("notes", JSON.stringify(notes));
 }
 
 /* ===== ADD NOTE (FILE UPLOAD) ===== */
@@ -71,16 +58,20 @@ function addNote() {
   }
 
   const reader = new FileReader();
- reader.onload = function () {
-  console.log("File loaded successfully");
+
+  reader.onload = function () {
     const notes = getNotes();
+
     notes.push({
       title,
       subject,
       filename: file.name,
       data: reader.result,
-      approved: false
+      approved: false,
+      favorite: false,
+      rating: 0
     });
+
     saveNotes(notes);
     alert("File sent for admin approval");
 
@@ -88,34 +79,59 @@ function addNote() {
     document.getElementById("subject").value = "";
     fileInput.value = "";
   };
+
   reader.readAsDataURL(file);
 }
 
-/* ===== LOAD APPROVED NOTES ===== */
+/* ===== LOAD USER NOTES ===== */
 function loadNotes() {
   const div = document.getElementById("notes");
   if (!div) return;
 
   const notes = getNotes();
-  const role = localStorage.getItem("role");
   div.innerHTML = "";
 
   notes.forEach((n, i) => {
     if (n.approved) {
       div.innerHTML += `
         <div class="note">
-          ${role === "admin" ? `<span class="delete" onclick="deleteNote(${i})">🗑️</span>` : ""}
-          <h4>${n.title}</h4>
+          <h3>${n.title}</h3>
           <p>${n.subject}</p>
           <p>${n.filename}</p>
-          <button onclick="downloadFile('${n.filename}','${n.data}')">Download</button>
+          <p>⭐ ${n.rating}/5</p>
+          <button onclick="downloadFile('${n.filename}','${n.data}')">⬇️ Download</button>
+          <button onclick="toggleFav(${i})">❤️ Favorite</button>
+          <button onclick="rate(${i},5)">⭐ Rate</button>
         </div>
       `;
     }
   });
 }
 
-/* ===== ADMIN PENDING ===== */
+/* ===== DOWNLOAD FILE (ANY FORMAT) ===== */
+function downloadFile(filename, data) {
+  const a = document.createElement("a");
+  a.href = data;
+  a.download = filename;
+  a.click();
+}
+
+/* ===== FAVORITE ===== */
+function toggleFav(i) {
+  const notes = getNotes();
+  notes[i].favorite = !notes[i].favorite;
+  saveNotes(notes);
+}
+
+/* ===== RATING ===== */
+function rate(i, stars) {
+  const notes = getNotes();
+  notes[i].rating = stars;
+  saveNotes(notes);
+  loadNotes();
+}
+
+/* ===== ADMIN PANEL ===== */
 function loadAdminNotes() {
   const div = document.getElementById("pending");
   if (!div) return;
@@ -123,50 +139,37 @@ function loadAdminNotes() {
   const notes = getNotes();
   div.innerHTML = "";
 
+  let found = false;
+
   notes.forEach((n, i) => {
     if (!n.approved) {
+      found = true;
       div.innerHTML += `
         <div class="note">
-          <h4>${n.title}</h4>
+          <h3>${n.title}</h3>
           <p>${n.subject}</p>
           <p>${n.filename}</p>
-          <button onclick="approve(${i})">Approve</button>
-          <button onclick="reject(${i})">Reject</button>
+          <button onclick="approveNote(${i})">Approve</button>
         </div>
       `;
     }
   });
+
+  if (!found) {
+    div.innerHTML = "<p>No pending uploads</p>";
+  }
 }
 
-/* ===== ADMIN ACTIONS ===== */
-function approve(i) {
-  const n = getNotes();
-  n[i].approved = true;
-  saveNotes(n);
+function approveNote(i) {
+  const notes = getNotes();
+  notes[i].approved = true;
+  saveNotes(notes);
   loadAdminNotes();
 }
 
-function reject(i) {
-  const n = getNotes();
-  n.splice(i, 1);
-  saveNotes(n);
-  loadAdminNotes();
-}
-
-function deleteNote(i) {
-  if (localStorage.getItem("role") !== "admin") return;
-  const n = getNotes();
-  n.splice(i, 1);
-  saveNotes(n);
-  loadNotes();
-}
-
-/* ===== DOWNLOAD ===== */
-function downloadFile(name, data) {
-  const a = document.createElement("a");
-  a.href = data;
-  a.download = name;
-  a.click();
+/* ===== DARK MODE ===== */
+function toggleTheme() {
+  document.body.classList.toggle("dark");
 }
 
 /* ===== AUTO LOAD ===== */
@@ -174,3 +177,4 @@ document.addEventListener("DOMContentLoaded", () => {
   loadNotes();
   loadAdminNotes();
 });
+
