@@ -23,36 +23,64 @@ function logout() {
 }
 
 /* ===== ROUTE PROTECTION ===== */
-const role = localStorage.getItem("role");
+document.addEventListener("DOMContentLoaded", () => {
+  const role = localStorage.getItem("role");
+  const page = location.pathname;
 
-if (location.pathname.includes("dashboard") && role !== "user") {
-  location.href = "index.html";
+  if (page.includes("dashboard") && role !== "user") {
+    location.href = "index.html";
+  }
+
+  if (page.includes("admin") && role !== "admin") {
+    location.href = "index.html";
+  }
+});
+
+/* ===== STORAGE HELPERS ===== */
+function getNotes() {
+  return JSON.parse(localStorage.getItem("notes")) || [];
 }
-if (location.pathname.includes("admin") && role !== "admin") {
-  location.href = "index.html";
+
+function saveNotes(notes) {
+  localStorage.setItem("notes", JSON.stringify(notes));
 }
 
-/* ===== NOTES STORAGE ===== */
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
-
-/* ===== ADD NOTE ===== */
+/* ===== ADD NOTE (FILE UPLOAD) ===== */
 function addNote() {
-  const note = {
-    title: title.value,
-    subject: subject.value,
-    content: content.value,
-    approved: false,
-    favorite: false,
-    rating: 0
+  const title = document.getElementById("title").value.trim();
+  const subject = document.getElementById("subject").value.trim();
+  const fileInput = document.getElementById("file");
+  const file = fileInput.files[0];
+
+  if (!title || !subject || !file) {
+    alert("Please fill all fields and select a file");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function () {
+    const notes = getNotes();
+
+    notes.push({
+      title,
+      subject,
+      filename: file.name,
+      data: reader.result,
+      approved: false,
+      favorite: false,
+      rating: 0
+    });
+
+    saveNotes(notes);
+    alert("File sent for admin approval");
+
+    document.getElementById("title").value = "";
+    document.getElementById("subject").value = "";
+    fileInput.value = "";
   };
 
-  notes.push(note);
-  localStorage.setItem("notes", JSON.stringify(notes));
-  alert("Note sent for admin approval");
-
-  title.value = "";
-  subject.value = "";
-  content.value = "";
+  reader.readAsDataURL(file);
 }
 
 /* ===== LOAD USER NOTES ===== */
@@ -60,74 +88,82 @@ function loadNotes() {
   const div = document.getElementById("notes");
   if (!div) return;
 
+  const notes = getNotes();
   div.innerHTML = "";
-  notes.filter(n => n.approved).forEach((n, i) => {
-    div.innerHTML += `
-      <div class="note">
-        <h3>${n.title}</h3>
-        <p>${n.subject}</p>
-        <p>${n.content}</p>
-        <p>⭐ ${n.rating}/5</p>
-        <button onclick="downloadNote('${n.title}','${n.content}')">⬇️ Download</button>
-        <button onclick="toggleFav(${i})">❤️ Favorite</button>
-        <button onclick="rate(${i},5)">⭐ Rate</button>
-      </div>
-    `;
-  });
-}
 
-/* ===== SEARCH ===== */
-function searchNotes() {
-  const q = search.value.toLowerCase();
-  document.querySelectorAll(".note").forEach(n => {
-    n.style.display = n.innerText.toLowerCase().includes(q) ? "block" : "none";
-  });
-}
-
-/* ===== DOWNLOAD ===== */
-function downloadNote(title, content) {
-  const a = document.createElement("a");
-  a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(content);
-  a.download = title + ".txt";
-  a.click();
-}
-
-/* ===== FAVORITE ===== */
-function toggleFav(i) {
-  notes[i].favorite = !notes[i].favorite;
-  localStorage.setItem("notes", JSON.stringify(notes));
-}
-
-/* ===== RATING ===== */
-function rate(i, stars) {
-  notes[i].rating = stars;
-  localStorage.setItem("notes", JSON.stringify(notes));
-  loadNotes();
-}
-
-/* ===== ADMIN ===== */
-function loadAdminNotes() {
-  const div = document.getElementById("pending");
-  if (!div) return;
-
-  div.innerHTML = "";
   notes.forEach((n, i) => {
-    if (!n.approved) {
+    if (n.approved) {
       div.innerHTML += `
         <div class="note">
           <h3>${n.title}</h3>
           <p>${n.subject}</p>
-          <p>${n.content}</p>
-          <button onclick="approveNote(${i})">Approve</button>
+          <p>${n.filename}</p>
+          <p>⭐ ${n.rating}/5</p>
+          <button onclick="downloadFile('${n.filename}','${n.data}')">⬇️ Download</button>
+          <button onclick="toggleFav(${i})">❤️ Favorite</button>
+          <button onclick="rate(${i},5)">⭐ Rate</button>
         </div>
       `;
     }
   });
 }
 
+/* ===== DOWNLOAD FILE (ANY FORMAT) ===== */
+function downloadFile(filename, data) {
+  const a = document.createElement("a");
+  a.href = data;
+  a.download = filename;
+  a.click();
+}
+
+/* ===== FAVORITE ===== */
+function toggleFav(i) {
+  const notes = getNotes();
+  notes[i].favorite = !notes[i].favorite;
+  saveNotes(notes);
+}
+
+/* ===== RATING ===== */
+function rate(i, stars) {
+  const notes = getNotes();
+  notes[i].rating = stars;
+  saveNotes(notes);
+  loadNotes();
+}
+
+/* ===== ADMIN PANEL ===== */
+function loadAdminNotes() {
+  const div = document.getElementById("pending");
+  if (!div) return;
+
+  const notes = getNotes();
+  div.innerHTML = "";
+
+  let found = false;
+
+  notes.forEach((n, i) => {
+    if (!n.approved) {
+      found = true;
+      div.innerHTML += `
+        <div class="note">
+          <h3>${n.title}</h3>
+          <p>${n.subject}</p>
+          <p>${n.filename}</p>
+          <button onclick="approveNote(${i})">Approve</button>
+        </div>
+      `;
+    }
+  });
+
+  if (!found) {
+    div.innerHTML = "<p>No pending uploads</p>";
+  }
+}
+
 function approveNote(i) {
+  const notes = getNotes();
   notes[i].approved = true;
-  localStorage.setItem("notes", JSON.stringify(notes));
+  saveNotes(notes);
   loadAdminNotes();
 }
 
@@ -137,5 +173,8 @@ function toggleTheme() {
 }
 
 /* ===== AUTO LOAD ===== */
-loadNotes();
-loadAdminNotes();
+document.addEventListener("DOMContentLoaded", () => {
+  loadNotes();
+  loadAdminNotes();
+});
+
