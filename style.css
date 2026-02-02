@@ -4,38 +4,38 @@ body {
   padding: 20px;
 }
 
-.dark {
-  background: #121212;
-  color: white;
-}
-
 .container {
-  max-width: 600px;
+  max-width: 650px;
   margin: auto;
+  background: white;
+  padding: 20px;
 }
 
-input, textarea, select {
+input, select, button {
   width: 100%;
   padding: 10px;
   margin: 8px 0;
 }
 
 button {
-  padding: 8px 15px;
-  margin: 5px 0;
   background: #007bff;
   color: white;
   border: none;
   cursor: pointer;
 }
 
-.note, .upload-box {
-  background: white;
-  padding: 15px;
-  margin: 10px 0;
+.note {
+  background: #eee;
+  padding: 12px;
+  margin-top: 10px;
+  position: relative;
 }
 
-.dark .note,
-.dark .upload-box {
-  background: #1e1e1e;
+.delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  cursor: pointer;
+  color: red;
+  font-size: 18px;
 }
