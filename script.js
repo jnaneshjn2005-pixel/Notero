@@ -5,137 +5,171 @@ if ("serviceWorker" in navigator) {
 
 /* ===== LOGIN ===== */
 function login() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
   const role = document.getElementById("role").value;
 
   if (role === "admin") {
-    localStorage.setItem("role", "admin");
-    window.location.href = "admin.html";
-  } else {
-    localStorage.setItem("role", "user");
-    window.location.href = "dashboard.html";
+    if (username === "admin" && password === "admin123") {
+      localStorage.clear();
+      localStorage.setItem("role", "admin");
+      window.location.href = "admin.html";
+    } else {
+      alert("Invalid admin credentials");
+    }
+    return;
   }
+
+  if (!username) {
+    alert("Enter username");
+    return;
+  }
+
+  localStorage.clear();
+  localStorage.setItem("role", "user");
+  window.location.href = "dashboard.html";
 }
 
 /* ===== LOGOUT ===== */
 function logout() {
-  localStorage.removeItem("role");
+  localStorage.clear();
   window.location.href = "index.html";
 }
 
 /* ===== ROUTE PROTECTION ===== */
-const role = localStorage.getItem("role");
+document.addEventListener("DOMContentLoaded", () => {
+  const role = localStorage.getItem("role");
+  const page = location.pathname;
 
-if (location.pathname.includes("dashboard") && role !== "user") {
-  location.href = "index.html";
+  if (page.includes("dashboard") && !role) {
+    location.href = "index.html";
+  }
+
+  if (page.includes("admin") && role !== "admin") {
+    location.href = "index.html";
+  }
+});
+
+/* ===== STORAGE ===== */
+function getNotes() {
+  return JSON.parse(localStorage.getItem("notes")) || [];
 }
-if (location.pathname.includes("admin") && role !== "admin") {
-  location.href = "index.html";
+function saveNotes(n) {
+  localStorage.setItem("notes", JSON.stringify(n));
 }
 
-/* ===== NOTES STORAGE ===== */
-let notes = JSON.parse(localStorage.getItem("notes")) || [];
-
-/* ===== ADD NOTE ===== */
+/* ===== ADD NOTE (FILE UPLOAD) ===== */
 function addNote() {
-  const note = {
-    title: title.value,
-    subject: subject.value,
-    content: content.value,
-    approved: false,
-    favorite: false,
-    rating: 0
+  const title = document.getElementById("title").value.trim();
+  const subject = document.getElementById("subject").value.trim();
+  const fileInput = document.getElementById("file");
+  const file = fileInput.files[0];
+
+  if (!title || !subject || !file) {
+    alert("Please fill all fields and select a file");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function () {
+    const notes = getNotes();
+    notes.push({
+      title,
+      subject,
+      filename: file.name,
+      data: reader.result,
+      approved: false
+    });
+    saveNotes(notes);
+    alert("File sent for admin approval");
+
+    document.getElementById("title").value = "";
+    document.getElementById("subject").value = "";
+    fileInput.value = "";
   };
-
-  notes.push(note);
-  localStorage.setItem("notes", JSON.stringify(notes));
-  alert("Note sent for admin approval");
-
-  title.value = "";
-  subject.value = "";
-  content.value = "";
+  reader.readAsDataURL(file);
 }
 
-/* ===== LOAD USER NOTES ===== */
+/* ===== LOAD APPROVED NOTES ===== */
 function loadNotes() {
   const div = document.getElementById("notes");
   if (!div) return;
 
+  const notes = getNotes();
+  const role = localStorage.getItem("role");
   div.innerHTML = "";
-  notes.filter(n => n.approved).forEach((n, i) => {
-    div.innerHTML += `
-      <div class="note">
-        <h3>${n.title}</h3>
-        <p>${n.subject}</p>
-        <p>${n.content}</p>
-        <p>⭐ ${n.rating}/5</p>
-        <button onclick="downloadNote('${n.title}','${n.content}')">⬇️ Download</button>
-        <button onclick="toggleFav(${i})">❤️ Favorite</button>
-        <button onclick="rate(${i},5)">⭐ Rate</button>
-      </div>
-    `;
-  });
-}
 
-/* ===== SEARCH ===== */
-function searchNotes() {
-  const q = search.value.toLowerCase();
-  document.querySelectorAll(".note").forEach(n => {
-    n.style.display = n.innerText.toLowerCase().includes(q) ? "block" : "none";
-  });
-}
-
-/* ===== DOWNLOAD ===== */
-function downloadNote(title, content) {
-  const a = document.createElement("a");
-  a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(content);
-  a.download = title + ".txt";
-  a.click();
-}
-
-/* ===== FAVORITE ===== */
-function toggleFav(i) {
-  notes[i].favorite = !notes[i].favorite;
-  localStorage.setItem("notes", JSON.stringify(notes));
-}
-
-/* ===== RATING ===== */
-function rate(i, stars) {
-  notes[i].rating = stars;
-  localStorage.setItem("notes", JSON.stringify(notes));
-  loadNotes();
-}
-
-/* ===== ADMIN ===== */
-function loadAdminNotes() {
-  const div = document.getElementById("pending");
-  if (!div) return;
-
-  div.innerHTML = "";
   notes.forEach((n, i) => {
-    if (!n.approved) {
+    if (n.approved) {
       div.innerHTML += `
         <div class="note">
-          <h3>${n.title}</h3>
+          ${role === "admin" ? `<span class="delete" onclick="deleteNote(${i})">🗑️</span>` : ""}
+          <h4>${n.title}</h4>
           <p>${n.subject}</p>
-          <p>${n.content}</p>
-          <button onclick="approveNote(${i})">Approve</button>
+          <p>${n.filename}</p>
+          <button onclick="downloadFile('${n.filename}','${n.data}')">Download</button>
         </div>
       `;
     }
   });
 }
 
-function approveNote(i) {
-  notes[i].approved = true;
-  localStorage.setItem("notes", JSON.stringify(notes));
+/* ===== ADMIN PENDING ===== */
+function loadAdminNotes() {
+  const div = document.getElementById("pending");
+  if (!div) return;
+
+  const notes = getNotes();
+  div.innerHTML = "";
+
+  notes.forEach((n, i) => {
+    if (!n.approved) {
+      div.innerHTML += `
+        <div class="note">
+          <h4>${n.title}</h4>
+          <p>${n.subject}</p>
+          <p>${n.filename}</p>
+          <button onclick="approve(${i})">Approve</button>
+          <button onclick="reject(${i})">Reject</button>
+        </div>
+      `;
+    }
+  });
+}
+
+/* ===== ADMIN ACTIONS ===== */
+function approve(i) {
+  const n = getNotes();
+  n[i].approved = true;
+  saveNotes(n);
   loadAdminNotes();
 }
 
-/* ===== DARK MODE ===== */
-function toggleTheme() {
-  document.body.classList.toggle("dark");
+function reject(i) {
+  const n = getNotes();
+  n.splice(i, 1);
+  saveNotes(n);
+  loadAdminNotes();
+}
+
+function deleteNote(i) {
+  if (localStorage.getItem("role") !== "admin") return;
+  const n = getNotes();
+  n.splice(i, 1);
+  saveNotes(n);
+  loadNotes();
+}
+
+/* ===== DOWNLOAD ===== */
+function downloadFile(name, data) {
+  const a = document.createElement("a");
+  a.href = data;
+  a.download = name;
+  a.click();
 }
 
 /* ===== AUTO LOAD ===== */
-loadNotes();
-loadAdminNotes();
+document.addEventListener("DOMContentLoaded", () => {
+  loadNotes();
+  loadAdminNotes();
+});
