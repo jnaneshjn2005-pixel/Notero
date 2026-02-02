@@ -71,7 +71,8 @@ function addNote() {
   }
 
   const reader = new FileReader();
-  reader.onload = function () {
+ reader.onload = function () {
+  console.log("File loaded successfully");
     const notes = getNotes();
     notes.push({
       title,
