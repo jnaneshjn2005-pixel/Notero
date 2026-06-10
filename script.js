@@ -5,15 +5,27 @@ if ("serviceWorker" in navigator) {
 
 /* ===== LOGIN ===== */
 function login() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
   const role = document.getElementById("role").value;
 
   if (role === "admin") {
-    localStorage.setItem("role", "admin");
-    window.location.href = "admin.html";
-  } else {
-    localStorage.setItem("role", "user");
-    window.location.href = "dashboard.html";
+    if (username === "admin" && password === "admin123") {
+      localStorage.setItem("role", "admin");
+      window.location.href = "admin.html";
+    } else {
+      alert("Invalid Admin Credentials");
+    }
+    return;
   }
+
+  if (!username) {
+    alert("Enter Username");
+    return;
+  }
+
+  localStorage.setItem("role", "user");
+  window.location.href = "dashboard.html";
 }
 
 /* ===== LOGOUT ===== */
@@ -150,6 +162,7 @@ function loadAdminNotes() {
           <p>${n.subject}</p>
           <p>${n.filename}</p>
           <button onclick="approveNote(${i})">Approve</button>
+<button onclick="rejectNote(${i})">Reject</button>
         </div>
       `;
     }
@@ -162,11 +175,24 @@ function loadAdminNotes() {
 
 function approveNote(i) {
   const notes = getNotes();
+
   notes[i].approved = true;
+
   saveNotes(notes);
+
   loadAdminNotes();
+  loadNotes();
 }
 
+function rejectNote(i) {
+  const notes = getNotes();
+
+  notes.splice(i, 1);
+
+  saveNotes(notes);
+
+  loadAdminNotes();
+}
 /* ===== DARK MODE ===== */
 function toggleTheme() {
   document.body.classList.toggle("dark");
